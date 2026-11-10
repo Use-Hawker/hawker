@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAWKER holder fee</title>
+  <style>
+    :root { --bg: #14110d; --card: #1f1a14; --line: rgba(236, 222, 196, .16); --text: #f3ead9; --muted: #a39680; --go: #f0b429; --bad: #ff8f7a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, sans-serif; }
+    .card { width: min(600px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 28px; }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { color: var(--muted); margin: 0 0 14px; }
+    table { width: 100%; border-collapse: collapse; font: 12.5px ui-monospace, Consolas, monospace; margin: 10px 0 18px; }
+    td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+    td:first-child { color: var(--muted); width: 130px; }
+    td:last-child { overflow-wrap: anywhere; }
+    button { width: 100%; height: 50px; border: 0; border-radius: 12px; background: var(--go); color: #1c1403; font: 700 16px system-ui, sans-serif; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #log { margin-top: 16px; font: 13px ui-monospace, Consolas, monospace; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ok { color: var(--go) !important; }
+    .err { color: var(--bad) !important; }
+    a { color: var(--go); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Turn on the holder fee waiver</h1>
+    <p>Calls <b>setHolderToken</b> on the HAWKER till from the owner wallet. After it lands, any seller holding at least 1,000,000 $HAWKER is paid the full price with no 3% fee. The till reads the balance on every payment. Gas is a few cents of ETH.</p>
+    <table>
+      <tr><td>Network</td><td>Robinhood Chain (4663)</td></tr>
+      <tr><td>Till</td><td><a href="https://robinhoodchain.blockscout.com/address/0x8281E355A7ff3d7f311e54C338B324131a0Ea45E" target="_blank" rel="noopener">0x8281E355A7ff3d7f311e54C338B324131a0Ea45E</a></td></tr>
+      <tr><td>token</td><td>$HAWKER 0x8f1b9fd7de32108c0e216dc2a87da6845ecdeaa4</td></tr>
+      <tr><td>min</td><td>1,000,000 $HAWKER (0.1% of supply)</td></tr>
+      <tr><td>Owner</td><td id="owner">reading…</td></tr>
+      <tr><td>Now on chain</td><td id="now">reading…</td></tr>
+    </table>
+    <button id="go">Connect wallet &amp; set</button>
+    <div id="log"></div>
+  </div>
+  <script>
+  (() => {
+    const TILL = '0x8281E355A7ff3d7f311e54C338B324131a0Ea45E';
+    const TOKEN = '0x8f1b9fd7de32108c0e216dc2a87da6845ecdeaa4';
+    const MIN = 1000000n * 10n ** 18n;
+    const RPC = 'https://rpc.mainnet.chain.robinhood.com';
+    const CHAIN = '0x1237';
+    const EXPLORER = 'https://robinhoodchain.blockscout.com';
+    const word = (hex) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0');
+    // setHolderToken(address token, uint256 min)
+    const DATA = '0x552d81e7' + word(TOKEN) + word(MIN.toString(16));
+    window.hawkerHolderData = DATA;
+    const $ = (id) => document.getElementById(id);
+    const log = (t, cls) => { $('log').innerHTML += `<div class="${cls || ''}">${t}</div>`; };
+    const rpc = async (method, params) => (await (await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json()).result;
+    const read = (sel) => rpc('eth_call', [{ to: TILL, data: sel }, 'latest']);
+    const asAddr = (w) => '0x' + w.slice(-40);
+    let OWNER = '';
+
+    // owner(), holderToken(), holderMin()
+    const refresh = async () => {
+      const [o, tok, min] = await Promise.all([read('0x8da5cb5b'), read('0x12cdcf84'), read('0x9e7cd7fe')]);
+      OWNER = asAddr(o);
+      $('owner').textContent = OWNER;
+      const set = asAddr(tok).toLowerCase() === TOKEN && BigInt(min) === MIN;
+      $('now').innerHTML = /^0x0+$/.test(asAddr(tok)) ? 'no holder token yet' : `${asAddr(tok)} · min ${(BigInt(min) / 10n ** 18n).toLocaleString('en-US')}${set ? ' <span class="ok">✓ done</span>' : ''}`;
+      return set;
+    };
+    refresh().then((set) => { if (set) { $('go').disabled = true; log('Already set. Nothing to do.', 'ok'); } }).catch(() => { $('now').textContent = 'could not read (RPC)'; });
+
+    $('go').onclick = async () => {
+      const btn = $('go');
+      if (!window.ethereum) { log('No wallet found. Open this page in a browser with MetaMask or Rabby.', 'err'); return; }
+      btn.disabled = true;
+      try {
+        const [from] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        log('Wallet: ' + from);
+        if (OWNER && from.toLowerCase() !== OWNER.toLowerCase()) { log('This wallet is not the till owner (' + OWNER + '). Switch to the owner wallet and try again.', 'err'); btn.disabled = false; return; }
+        try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN }] }); }
+        catch (e) {
+          if (e.code !== 4902) throw e;
+          await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CHAIN, chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [RPC], blockExplorerUrls: [EXPLORER] }] });
+        }
+        log('Network: Robinhood Chain ✓');
+        const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: TILL, data: DATA }] });
+        log('Sent: <a href="' + EXPLORER + '/tx/' + hash + '" target="_blank" rel="noopener">' + hash + '</a>');
+        log('Waiting for confirmation…');
+        let receipt = null;
+        for (let i = 0; i < 90 && !receipt; i++) { await new Promise((r) => setTimeout(r, 2000)); receipt = await rpc('eth_getTransactionReceipt', [hash]); }
+        if (!receipt) { log('Still pending. Check the transaction link above.', 'err'); return; }
+        if (receipt.status !== '0x1') { log('The transaction failed on-chain.', 'err'); btn.disabled = false; return; }
+        const ok = await refresh();
+        log(ok ? 'Done ✓ Holders of 1,000,000 $HAWKER now pay 0% fee.' : 'Landed, but the till does not show the new values yet. Reload in a minute.', ok ? 'ok' : 'err');
+        fetch('/set', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tx: hash }) }).catch(() => {});
+      } catch (e) {
+        log(e.code === 4001 ? 'Cancelled in the wallet.' : 'Error: ' + (e.message || e), 'err');
+        btn.disabled = false;
+      }
+    };
+  })();
+  </script>
+</body>
+</html>

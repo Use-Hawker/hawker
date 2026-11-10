@@ -6,6 +6,7 @@ An agent asks a stall for a price, signs a USDG payment for exactly one call, an
 
 - Site: https://usehawker.fun
 - HawkerTill: [`0x8281E355A7ff3d7f311e54C338B324131a0Ea45E`](https://robinhoodchain.blockscout.com/address/0x8281E355A7ff3d7f311e54C338B324131a0Ea45E) on Robinhood Chain (4663), [Sourcify exact match](https://repo.sourcify.dev/4663/0x8281E355A7ff3d7f311e54C338B324131a0Ea45E)
+- $HAWKER: [`0x8f1b9fd7de32108c0e216dc2a87da6845ecdeaa4`](https://robinhoodchain.blockscout.com/token/0x8f1b9fd7de32108c0e216dc2a87da6845ecdeaa4) on [Pons](https://ponsfamily.com/launchpad/0x8f1b9fd7de32108c0e216dc2a87da6845ecdeaa4). A seller holding 1,000,000 $HAWKER pays no fee: the till reads the balance in `feeFor` on every payment.
 - USDG: [`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`](https://robinhoodchain.blockscout.com/token/0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168)
 
 ## One call
@@ -39,6 +40,7 @@ USDG answers an authorization whose nonce was already used with success and move
 | `contracts/HawkerTill.sol` | the till: `settle`, `settleMany`, fee capped at 5%, holds nothing between transactions |
 | `contracts/test.mjs` | 40 checks on a Hardhat fork with the real USDG |
 | `contracts/deploy.html`, `deploy-server.mjs`, `verify.mjs` | one-button deploy from a browser wallet, then Sourcify |
+| `contracts/holder.html`, `holder-server.mjs` | the owner's one-button `setHolderToken($HAWKER, 1,000,000)` |
 | `core/hawker.mjs` | signing, the payment header, the settle struct, the listing message |
 | `worker/` | the gateway (Cloudflare Worker + D1): catalog, 402 quotes, settlement, house stalls, seller stalls, ledger |
 | `agent/` | the agent kit: CLI and stdio MCP server with per-call and per-day limits |
