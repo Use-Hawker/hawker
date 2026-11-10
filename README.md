@@ -50,7 +50,7 @@ USDG answers an authorization whose nonce was already used with success and move
 ## The agent kit
 
 ```bash
-git clone https://github.com/Hawker-Agents/hawker hawker
+git clone https://github.com/Use-Hawker/hawker hawker
 cd hawker && npm install --omit=dev
 cd agent && npm link        # puts `hawker` on your PATH
 hawker init                 # makes ~/.hawker/key, prints the address to fund with USDG
