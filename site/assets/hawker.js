@@ -2,7 +2,7 @@
 // One file for every page; <body data-page="..."> says which parts run.
 (() => {
   // filled in at launch
-  const CONFIG = { contract: '', github: '', x: '' };
+  const CONFIG = { contract: '', github: 'https://github.com/Use-Hawker/hawker', x: '' };
   const EXPLORER = 'https://robinhoodchain.blockscout.com';
   const USDG = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168';
   const page = document.body.dataset.page || 'home';
