@@ -1,0 +1,8 @@
+{
+  "address": "0x8281e355a7ff3d7f311e54c338b324131a0ea45e",
+  "tx": "0xd27618bd443dafbaa4b40f7325af7206d191ab6f3cd17dca282b5e8e8da022cd",
+  "owner": "0x43cfe7a33be23acb9deac99791ff2bbe019c3471",
+  "feeSink": "0x43cfe7a33be23acb9deac99791ff2bbe019c3471",
+  "feeBps": 300,
+  "block": 110918651
+}

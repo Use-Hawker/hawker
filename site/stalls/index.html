@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stalls — HAWKER</title>
+  <meta name="description" content="Every API on HAWKER with its price per call in USDG. Try a house stall free before an agent pays for it.">
+  <meta property="og:title" content="Stalls — HAWKER">
+  <meta property="og:image" content="/og-image.png">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="stalls">
+  <div class="awning thin"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="sign">
+      <div>
+        <p class="kicker">The catalog</p>
+        <h1>Every stall, every price.</h1>
+        <p class="lead">One stall is one API with one price per call. The price on the tag is exactly what an agent signs for, and the seller named on the tag is exactly who gets it.</p>
+      </div>
+      <a class="btn gold" href="/sell/">List your API</a>
+    </header>
+
+    <section style="padding-top:40px">
+      <div class="filters">
+        <button type="button" class="on" data-f="all">All</button>
+        <button type="button" data-f="house">House · <span id="nHouse">–</span></button>
+        <button type="button" data-f="seller">Sellers · <span id="nSeller">–</span></button>
+      </div>
+      <div class="rail" id="rail"></div>
+      <div class="empty" id="railEmpty" hidden>The catalog did not load. Try again in a moment.</div>
+    </section>
+
+    <section id="counter">
+      <h2>Try one at the counter</h2>
+      <p class="sub">House stalls answer a few free calls a day here, so you can see the real output before an agent pays for it. The paid call is the same request with a payment attached: see it in the other two tabs.</p>
+      <div class="counter">
+        <div class="left">
+          <label for="pick">Stall</label>
+          <select id="pick"></select>
+          <div id="fields"></div>
+          <p class="hint" id="pickHint"></p>
+          <button class="btn gold wide" id="run" type="button">Run a free call</button>
+        </div>
+        <div class="right">
+          <div class="tabs"><button type="button" class="on" data-tab="out">Answer</button><button type="button" data-tab="agent">From an agent</button><button type="button" data-tab="http">Raw HTTP</button></div>
+          <pre id="pane">Pick a stall and run it.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>House stalls and seller stalls</h2>
+      <div class="cols">
+        <div class="card"><h4>House</h4><p>Run by HAWKER on open data and the chain itself, so the market has something to sell on day one. Paid through the same till as everyone else, to the house wallet. Marked <span class="badge house">house</span> everywhere, and on the ledger.</p></div>
+        <div class="card"><h4>Sellers</h4><p>Anyone's https API, listed with a signed message from the wallet it is paid to. HAWKER forwards each paid call with an HMAC signature and passes the answer back. The seller's URL is never shown.</p></div>
+        <div class="card"><h4>Taken down</h4><p>A stall that phishes, lies about what it returns or breaks the law can be hidden from the catalog. Hiding stops new calls. It never touches money: every past payment already landed in the seller's wallet.</p></div>
+      </div>
+    </section>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

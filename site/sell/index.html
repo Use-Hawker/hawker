@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sell — HAWKER</title>
+  <meta name="description" content="Put a price on one API call and AI agents can buy it. Paid in USDG on Robinhood Chain on every call, straight to your wallet.">
+  <meta property="og:title" content="Sell your API by the call — HAWKER">
+  <meta property="og:image" content="/og-image.png">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="sell">
+  <div class="awning thin"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="sign">
+      <div>
+        <p class="kicker">Open a stall</p>
+        <h1>Have an API? Sell it by the call.</h1>
+        <p class="lead">Put a price on one call and agents can buy it today. You sign the listing with the wallet you want to be paid to. That wallet is the only one that can change or close it.</p>
+      </div>
+    </header>
+
+    <section style="padding-top:40px">
+      <div class="sell">
+        <ul class="deal">
+          <li><b>You get paid</b><span>On every call, in USDG, straight to your wallet, in the same transaction the buyer pays in. There is no balance to withdraw.</span></li>
+          <li><b>The fee</b><span><span class="feeText">3%</span> of the price. The till's code caps it at 5% for good.</span></li>
+          <li><b>Your API</b><span>Any https endpoint that takes a JSON POST and answers within 30 seconds, up to 1 MB.</span></li>
+          <li><b>Failed calls</b><span>A 4xx or 5xx from your API is passed on and not charged. Only a 2xx answer is paid.</span></li>
+          <li><b>Price</b><span>From <span class="minText">0.02</span> to 100 USDG a call. We pay the gas of each settlement.</span></li>
+          <li><b>Holders</b><span>A seller holding the $HAWKER minimum pays no fee at all, once the token is live.</span></li>
+        </ul>
+        <form class="card" id="sellForm" autocomplete="off">
+          <div class="two">
+            <div><label for="fName">Name</label><input id="fName" maxlength="60" placeholder="Weather Now" required></div>
+            <div><label for="fSlug">Address (slug)</label><input id="fSlug" maxlength="32" placeholder="weather-now" pattern="[a-z0-9][a-z0-9\-]{2,31}" required></div>
+          </div>
+          <label for="fSummary">What one call returns</label>
+          <input id="fSummary" maxlength="200" placeholder="Current temperature and wind for a city." required>
+          <div class="two">
+            <div><label for="fUrl">Your API URL</label><input id="fUrl" type="url" placeholder="https://api.example.com/weather" required></div>
+            <div><label for="fPrice">Price per call, USDG</label><input id="fPrice" type="number" step="0.01" min="0.02" max="100" value="0.05" required></div>
+          </div>
+          <label for="fDocs">Input, for the agent (optional)</label>
+          <textarea id="fDocs" maxlength="2000" placeholder='POST {"city":"Paris"}'></textarea>
+          <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font:500 13px Archivo"><input id="fRotate" type="checkbox" style="width:auto;height:auto">Give me a new signing secret (for a stall I already have)</label>
+          <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font:500 13px Archivo;margin-top:6px"><input id="fClose" type="checkbox" style="width:auto;height:auto">Close this stall</label>
+          <button class="btn" id="sellGo" type="submit" style="width:100%;margin-top:16px">Connect wallet &amp; sign the listing</button>
+          <p class="hint">Signing is free: a message, not a transaction. Your stall is paid to the wallet that signs. To change a stall, send the same slug again from the same wallet.</p>
+          <div class="msg" id="sellMsg"></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="verify">
+      <h2>Check the signature</h2>
+      <p class="sub">Every paid call reaches your URL as a POST with the buyer's JSON as the body, plus these headers. Refuse anything whose signature does not match or is older than five minutes: then only HAWKER can make your API do paid work.</p>
+      <table class="ref">
+        <thead><tr><th>Header</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>X-Hawker-Signature</td><td><code>sha256=</code> + hex HMAC-SHA256 of <code>timestamp + "." + raw body</code>, keyed with your signing secret</td></tr>
+          <tr><td>X-Hawker-Timestamp</td><td>Unix seconds when HAWKER sent it</td></tr>
+          <tr><td>X-Hawker-Buyer</td><td>The wallet that is paying for this call</td></tr>
+          <tr><td>X-Hawker-Call</td><td>The call ref. The same ref is in the <code>Paid</code> event on chain.</td></tr>
+        </tbody>
+      </table>
+      <div data-codetabs>
+        <div class="tabs"><button type="button" data-k="node">Node</button><button type="button" data-k="python">Python</button><button type="button" data-k="worker">Cloudflare Worker</button></div>
+        <pre data-pane="node">import { createHmac, timingSafeEqual } from 'node:crypto';
+
+export function fromHawker(req, rawBody, secret) {
+  const ts = req.headers['x-hawker-timestamp'], sig = req.headers['x-hawker-signature'] || '';
+  if (!ts || Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
+  const want = 'sha256=' + createHmac('sha256', secret).update(`${ts}.${rawBody}`).digest('hex');
+  return sig.length === want.length &amp;&amp; timingSafeEqual(Buffer.from(sig), Buffer.from(want));
+}</pre>
+        <pre data-pane="python">import hmac, hashlib, time
+
+def from_hawker(headers, raw_body: bytes, secret: str) -> bool:
+    ts = headers.get("x-hawker-timestamp", "")
+    sig = headers.get("x-hawker-signature", "")
+    if not ts or abs(time.time() - int(ts)) > 300:
+        return False
+    want = "sha256=" + hmac.new(secret.encode(), f"{ts}.".encode() + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, want)</pre>
+        <pre data-pane="worker">async function fromHawker(request, rawBody, secret) {
+  const ts = request.headers.get('x-hawker-timestamp'), sig = request.headers.get('x-hawker-signature') || '';
+  if (!ts || Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${ts}.${rawBody}`)));
+  return sig === 'sha256=' + [...mac].map((b) => b.toString(16).padStart(2, '0')).join('');
+}</pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>From the command line</h2>
+      <p class="sub">The agent kit opens stalls too. The key it signs with is the wallet the stall is paid to.</p>
+      <pre>hawker list weather-now https://api.example.com/weather 0.05 "Weather Now" "Current temperature and wind for a city."
+hawker close weather-now https://api.example.com/weather 0.05</pre>
+    </section>
+
+    <section class="faq">
+      <h2>Questions</h2>
+      <details><summary>When exactly am I paid?</summary><p>Your API answers with a 2xx, then HAWKER lands the buyer's signed payment through the till. The USDG reaches your wallet in that transaction, and only then does the answer go back to the buyer. If the payment cannot land, the buyer gets no answer.</p></details>
+      <details><summary>Can someone call my API without paying?</summary><p>Not through HAWKER, and not at all if you check the signature: only HAWKER has your signing secret. Your URL is never shown in the catalog.</p></details>
+      <details><summary>What do I answer when the input is wrong?</summary><p>A 4xx with a JSON body. HAWKER passes it to the buyer as <code>sellerReply</code> and charges nothing.</p></details>
+      <details><summary>I lost the signing secret.</summary><p>Send the listing again from the same wallet with "Give me a new signing secret" ticked. The old one stops being used at once.</p></details>
+      <details><summary>Who decides what can be listed?</summary><p>Anyone can list. HAWKER hides stalls that phish, lie about what they return, or break the law. Hiding stops new calls and never touches money already paid.</p></details>
+    </section>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

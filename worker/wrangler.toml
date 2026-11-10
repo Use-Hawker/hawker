@@ -1,0 +1,36 @@
+name = "hawker"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+# turn on once the usehawker.fun zone is active on Cloudflare
+# routes = [
+#   { pattern = "usehawker.fun", custom_domain = true },
+#   { pattern = "www.usehawker.fun", custom_domain = true },
+# ]
+
+[assets]
+directory = "../site"
+binding = "ASSETS"
+run_worker_first = ["/v1/*", "/v1"]
+
+# Create with `npx wrangler d1 create hawker` and paste the database_id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "hawker"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+[vars]
+TILL = "0x8281E355A7ff3d7f311e54C338B324131a0Ea45E"   # HawkerTill, deployed 2026-11-10 (block 110918651), Sourcify exact match
+HOUSE_PAY_TO = ""      # the wallet the house stalls are paid to
+FEE_BPS = "300"        # shown on /v1; the till itself holds the real fee
+MIN_PRICE = "0.02"     # one settlement costs about a cent of gas, paid by the settler
+DEMO_PER_IP = "10"
+DEMO_PER_DAY = "500"
+LIST_PER_DAY = "5"
+OWN_PAYERS = ""        # the team's own buyer wallets, comma separated, so stats can tell outside calls apart
+TOKEN_ADDRESS = ""
+# Secrets (not here):
+#   npx wrangler secret put GAS_KEY      (hex private key of the settler wallet; it only needs ETH for gas)
+#   npx wrangler secret put RH_RPC_URL   (Robinhood Chain RPC; the public one answers eth_call with 429 from Cloudflare)
+#   npx wrangler secret put ADMIN_KEY    (for /v1/admin/hide)

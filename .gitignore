@@ -1,0 +1,7 @@
+node_modules/
+contracts/cache/
+worker/.dev.vars
+worker/.wrangler/
+worker/dist/
+*.key
+.env

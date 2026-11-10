@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs — HAWKER</title>
+  <meta name="description" content="How HAWKER works: the payment, the till contract, the HTTP API, errors and the trust model.">
+  <meta property="og:title" content="Docs — HAWKER">
+  <meta property="og:image" content="/og-image.png">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="docs">
+  <div class="awning thin"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="sign">
+      <div>
+        <p class="kicker">Docs</p>
+        <h1>How the stall works.</h1>
+        <p class="lead">The payment, the contract that settles it, the HTTP API, and exactly who can do what with your money.</p>
+      </div>
+    </header>
+
+    <div class="docs">
+      <aside class="toc">
+        <a href="#flow">The flow</a>
+        <a href="#payment">The payment</a>
+        <a href="#till">The till</a>
+        <a href="#api">HTTP API</a>
+        <a href="#errors">Errors</a>
+        <a href="#trust">Who can do what</a>
+        <a href="#limits">Limits</a>
+      </aside>
+      <div class="prose">
+        <section id="flow">
+          <h2>The flow</h2>
+          <p>A paid call is two HTTP requests to the same URL. The first one asks the price, the second one carries the payment.</p>
+          <ol>
+            <li>The agent sends <code>POST /v1/call/:slug</code> with its JSON input and no payment. HAWKER checks the input and answers <code>402</code> with the till, the seller, the exact price in USDG units and a fresh call <code>ref</code>.</li>
+            <li>The agent signs a USDG <code>ReceiveWithAuthorization</code> for that price, made out to the till, and sends the same request again with the signed payment in the <code>X-Payment</code> header.</li>
+            <li>HAWKER checks the signature, reserves the payment so it cannot be used twice, and simulates the settlement on chain. If the wallet is short, it stops here and nothing runs.</li>
+            <li>HAWKER runs the call: a house stall in process, a seller's stall by forwarding the request with an HMAC signature.</li>
+            <li>Only if the stall answered with success does HAWKER send <code>HawkerTill.settle()</code>. The answer is returned once the transaction holds a <code>Paid</code> event for this call.</li>
+          </ol>
+          <div class="note">A failure at any step before the last one costs nothing, and the signature stays valid until its deadline, so the agent can retry with the same one.</div>
+        </section>
+
+        <section id="payment">
+          <h2>The payment</h2>
+          <p>USDG on Robinhood Chain supports EIP-3009, so a payment is a signature, not a transaction. The agent's wallet needs USDG and no ETH.</p>
+          <table class="ref">
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>domain</td><td><code>{ name: "Global Dollar", version: "1", chainId: 4663, verifyingContract: USDG }</code></td></tr>
+              <tr><td>type</td><td><code>ReceiveWithAuthorization(from, to, value, validAfter, validBefore, nonce)</code></td></tr>
+              <tr><td>to</td><td>The till. <code>receiveWithAuthorization</code> only lets <code>to</code> submit it, so the signature is useless anywhere but the till.</td></tr>
+              <tr><td>value</td><td>The exact price, in USDG units (6 decimals): 0.02 USDG is <code>20000</code>.</td></tr>
+              <tr><td>nonce</td><td><code>keccak256(abi.encode(seller, ref))</code>. The seller is part of what was signed, so nobody can send the money to another wallet.</td></tr>
+              <tr><td>validBefore</td><td>A few minutes ahead. HAWKER refuses a payment with less than 20 seconds left.</td></tr>
+            </tbody>
+          </table>
+          <p>The <code>X-Payment</code> header is base64 of this JSON:</p>
+          <pre>{ "from": "0x…", "seller": "0x…", "value": "20000", "validAfter": "0",
+  "validBefore": "1794318000", "ref": "0x…32 bytes", "signature": "0x…65 bytes" }</pre>
+          <div class="note warn">USDG answers an authorization whose nonce was already used with success and moves nothing. The till therefore counts what actually arrived and reverts with <code>NotPaid</code>, and HAWKER only trusts the <code>Paid</code> event, never a successful transaction alone.</div>
+        </section>
+
+        <section id="till">
+          <h2>The till</h2>
+          <p>One contract, about 3 KB, that holds nothing between transactions.</p>
+          <div class="facts">
+            <div><b>Address</b><span class="tillAddr">–</span></div>
+            <div><b>Source</b><span>Verified on Sourcify, exact match. <a class="ghLink" href="#" target="_blank" rel="noopener" hidden>Code on GitHub</a></span></div>
+            <div><b>Pays in</b><span>USDG <a class="mono" href="https://robinhoodchain.blockscout.com/token/0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168" target="_blank" rel="noopener">0x5fc5…d168</a></span></div>
+            <div><b>Fee</b><span><span class="feeText">3%</span> of each payment, capped at 5% by <code>MAX_FEE_BPS</code></span></div>
+            <div><b>Settler</b><span class="settlerAddr">–</span></div>
+          </div>
+          <table class="ref">
+            <thead><tr><th>Function</th><th>Who</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td>settle(Payment)</td><td>anyone</td><td>Pulls the signed USDG into the till, checks the full amount arrived, sends the seller its part and the fee sink the fee, emits <code>Paid(ref, buyer, seller, value, fee)</code>.</td></tr>
+              <tr><td>settleMany(Payment[])</td><td>anyone</td><td>The same for a batch. A payment that fails is skipped with a <code>Skipped</code> event; the rest still land.</td></tr>
+              <tr><td>nonceFor(seller, ref)</td><td>view</td><td>The nonce a buyer must sign.</td></tr>
+              <tr><td>feeFor(seller, value)</td><td>view</td><td>The fee on a payment to this seller. Zero for a seller holding the holder minimum.</td></tr>
+              <tr><td>setFee(bps)</td><td>owner</td><td>At most 500 (5%).</td></tr>
+              <tr><td>setFeeSink, setHolderToken, setOwner</td><td>owner</td><td>Where the fee goes, which token waives it, who the owner is.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="api">
+          <h2>HTTP API</h2>
+          <p>Base URL: <code class="originText"></code>. JSON in, JSON out, CORS open.</p>
+          <table class="ref">
+            <thead><tr><th>Endpoint</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><span class="verb">GET</span>/v1</td><td>The till, USDG, the settler, the fee and the minimum price.</td></tr>
+              <tr><td><span class="verb">GET</span>/v1/stalls</td><td>The catalog. House stalls list their input fields.</td></tr>
+              <tr><td><span class="verb">GET</span>/v1/stalls/:slug</td><td>One stall.</td></tr>
+              <tr><td><span class="verb post">POST</span>/v1/call/:slug</td><td>Without <code>X-Payment</code>: <code>402</code> with what to sign. With it: <code>200 { result, receipt }</code>, and the receipt again in the <code>X-Payment-Response</code> header.</td></tr>
+              <tr><td><span class="verb post">POST</span>/v1/demo/:slug</td><td>A free call to a house stall, a few per visitor per day.</td></tr>
+              <tr><td><span class="verb post">POST</span>/v1/stalls</td><td>Open, change or close a stall: <code>{ slug, name, summary, docs, url, priceUsd, payTo, open, at, rotate, signature }</code>, signed by <code>payTo</code> with <code>personal_sign</code>.</td></tr>
+              <tr><td><span class="verb">GET</span>/v1/ledger</td><td>Settled payments, newest first, <code>?limit=</code> up to 100.</td></tr>
+              <tr><td><span class="verb">GET</span>/v1/stats</td><td>Totals, including calls not made by HAWKER's own wallets.</td></tr>
+            </tbody>
+          </table>
+          <h3>The listing message</h3>
+          <pre>HAWKER stall
+slug: weather-now
+url: https://api.example.com/weather
+price: 0.05 USDG per call
+pay to: 0x…
+open: yes
+at: 1794318000</pre>
+          <p><code>at</code> is unix seconds within ten minutes of now, and must be newer than the stall's last change, so an old signed listing cannot be replayed.</p>
+        </section>
+
+        <section id="errors">
+          <h2>Errors</h2>
+          <p>Every error is <code>{ "error": { "code", "message" } }</code>. None of them charges anything.</p>
+          <table class="ref">
+            <thead><tr><th>Code</th><th>Status</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>payment_required</td><td>402</td><td>No payment yet. <code>accepts[0]</code> says what to sign.</td></tr>
+              <tr><td>wrong_value, wrong_seller</td><td>402</td><td>The payment is not for this stall's price or seller.</td></tr>
+              <tr><td>expired</td><td>402</td><td>Outside its time window. Sign a new one.</td></tr>
+              <tr><td>bad_signature, bad_payment</td><td>402</td><td>Not signed by <code>from</code>, or the header could not be read.</td></tr>
+              <tr><td>payment_used</td><td>402</td><td>This payment already bought a result, or already landed on chain.</td></tr>
+              <tr><td>would_not_settle</td><td>402</td><td>The wallet does not hold enough USDG.</td></tr>
+              <tr><td>settle_failed</td><td>402</td><td>The stall answered but the payment did not land. No result is returned.</td></tr>
+              <tr><td>missing_*, invalid_*</td><td>400</td><td>The input does not fit the stall.</td></tr>
+              <tr><td>seller_refused</td><td>4xx</td><td>The seller's API turned the input down. Its reply is in <code>sellerReply</code>.</td></tr>
+              <tr><td>seller_failed, seller_unreachable, stall_failed</td><td>502</td><td>The stall could not answer.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="trust">
+          <h2>Who can do what</h2>
+          <table class="ref">
+            <thead><tr><th>Who</th><th>Can</th><th>Cannot</th></tr></thead>
+            <tbody>
+              <tr><td>The agent</td><td>Sign payments for exact prices to named sellers, within its own limits.</td><td>Pay more than it signed, or have one signature pay twice.</td></tr>
+              <tr><td>HAWKER's gateway</td><td>Choose not to serve a call. Land a payment it was given.</td><td>Change the amount, the seller or the buyer of a payment. Hold anyone's USDG.</td></tr>
+              <tr><td>The till's owner</td><td>Set the fee up to 5%, the fee wallet and the holder token.</td><td>Move a payment, pause the till, or upgrade it. There is no upgrade.</td></tr>
+              <tr><td>A seller</td><td>Answer calls, and be paid for every 2xx.</td><td>Be paid without answering: the payment lands only after the answer.</td></tr>
+            </tbody>
+          </table>
+          <p>One thing does rest on trust: HAWKER lands the payment after the seller answered and before passing the answer on, so the buyer trusts HAWKER to pass it on, and the seller trusts HAWKER to land the payment. Each payment is a few cents, and every one is on the ledger.</p>
+        </section>
+
+        <section id="limits">
+          <h2>Limits</h2>
+          <table class="ref">
+            <tbody>
+              <tr><td>Price</td><td><span class="minText">0.02</span> to 100 USDG per call</td></tr>
+              <tr><td>Request body</td><td>64 KB</td></tr>
+              <tr><td>Seller's answer</td><td>1 MB, 30 seconds, no redirects</td></tr>
+              <tr><td>Seller's URL</td><td>https on a public host name, default port</td></tr>
+              <tr><td>Free demo</td><td>House stalls only, a few calls per visitor per day</td></tr>
+              <tr><td>New stalls</td><td>A few per visitor per day</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAWKER — APIs sold by the call, paid in USDG</title>
+  <meta name="description" content="A market on Robinhood Chain where AI agents buy API calls one at a time. The agent signs a USDG payment, the seller is paid on chain in the same transaction. No deposits, no custody.">
+  <meta property="og:title" content="HAWKER — APIs sold by the call">
+  <meta property="og:description" content="AI agents pay per call in USDG on Robinhood Chain. Sellers are paid on chain on every call.">
+  <meta property="og:image" content="/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="home">
+  <div class="awning"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="hero">
+      <div>
+        <h1>APIs sold <mark>by the call</mark>. Paid in USDG, on chain.</h1>
+        <p class="lead">A market on Robinhood Chain where AI agents buy API calls one at a time. The agent signs a payment for exactly one call, and the seller has the USDG in their wallet before the answer leaves. No deposit, no balance held by us, no gas for the agent.</p>
+        <div class="cta">
+          <a class="btn gold" href="/stalls/">See the stalls</a>
+          <a class="btn ghost" href="/sell/">Open a stall</a>
+        </div>
+        <div class="ca" id="ca"><b>$HAWKER</b><span id="caText"></span><button id="caCopy" type="button">copy</button><a id="caPons" target="_blank" rel="noopener">Pons</a></div>
+      </div>
+      <div class="handover">
+        <h3>One call, start to finish</h3>
+        <div class="step"><i>1</i><div><b>The agent asks a stall</b><code>POST /v1/call/rh-wallet → <em>402</em> { seller, value: "20000", ref }</code></div></div>
+        <div class="step"><i>2</i><div><b>It signs a USDG payment for that price</b><code>ReceiveWithAuthorization → the till, nonce = keccak(seller, ref)</code></div></div>
+        <div class="step"><i>3</i><div><b>HAWKER runs the call, then lands the payment</b><code>HawkerTill.settle() → seller +97%, fee 3%, one transaction</code></div></div>
+        <div class="step"><i>4</i><div><b>The answer comes back with the receipt</b><code><em>200</em> { result, receipt: { tx, paidUsd, sellerGotUsd } }</code></div></div>
+        <div class="step"><i>✕</i><div><b>The call failed? Nothing is charged</b><code>the signature was never used and still works</code></div></div>
+      </div>
+    </header>
+
+    <div class="tally">
+      <div><b id="sStalls">–</b><span>stalls open</span></div>
+      <div><b id="sCalls">–</b><span>paid calls</span></div>
+      <div><b id="sVolume">–</b><span>USDG paid</span></div>
+      <div><b id="sSellers">–</b><span>USDG to sellers</span></div>
+    </div>
+
+    <section>
+      <h2>Two sides of one stall</h2>
+      <p class="sub">An agent with a wallet on one side, an API with a price on the other. HAWKER stands in between only long enough to run the call and land the payment.</p>
+      <div class="sides">
+        <div class="side">
+          <h3>You run agents</h3>
+          <p>Give each agent its own wallet with a few USDG in it, instead of an API key per service and a card on file.</p>
+          <ul>
+            <li>It pays per call, only for answers it got.</li>
+            <li>It never needs ETH. We pay the gas of every settlement.</li>
+            <li>Its spend is capped twice: by what is in its wallet and by your per-call and per-day limits.</li>
+            <li>One MCP server in Claude or Cursor, or one line in a script.</li>
+          </ul>
+          <a class="btn" href="/agents/">Set up an agent</a>
+        </div>
+        <div class="side dark">
+          <h3>You have an API</h3>
+          <p>Put a price on one call and agents can buy it today. No sign-up, no invoices, no payout requests.</p>
+          <ul>
+            <li>Paid in USDG on every call, in the same transaction the buyer pays in.</li>
+            <li>A <span class="feeText">3%</span> fee. The contract caps it at 5% for good.</li>
+            <li>Errors from your API are passed on and never charged.</li>
+            <li>Listing is a signed message from your payout wallet. Free.</li>
+          </ul>
+          <a class="btn" href="/sell/">Open a stall</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>On the rail today</h2>
+      <p class="sub">House stalls are run by HAWKER on open data, so there is something to buy on day one. Every other stall belongs to whoever listed it.</p>
+      <div class="rail" id="rail"></div>
+      <div class="empty" id="railEmpty" hidden>The catalog did not load. Try again in a moment.</div>
+      <p class="more"><a href="/stalls/">All stalls, and a free call at the counter →</a></p>
+    </section>
+
+    <section>
+      <h2>Why not a prepaid balance?</h2>
+      <p class="sub">Most ways to pay for APIs with crypto ask you to deposit first and trust the platform with the balance. HAWKER never holds the money.</p>
+      <table class="compare">
+        <thead><tr><th></th><th>HAWKER</th><th>A prepaid balance</th></tr></thead>
+        <tbody>
+          <tr><td>Where the money sits</td><td class="yes">In the agent's own wallet until a call is paid</td><td>In the platform's wallet, as credit</td></tr>
+          <tr><td>When the seller is paid</td><td class="yes">In the same transaction, on every call</td><td>When a payout is requested and sent</td></tr>
+          <tr><td>What proves a payment</td><td class="yes">A <code>Paid</code> event on Robinhood Chain</td><td>A row in the platform's database</td></tr>
+          <tr><td>A failed call</td><td class="yes">Never signed for, never charged</td><td>Refunded as credit, if at all</td></tr>
+          <tr><td>If the platform disappears</td><td class="yes">Nothing is lost: there is nothing held</td><td>The balance goes with it</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="board">
+        <h2>Fresh off the ledger</h2>
+        <p class="sub">The last calls that were paid on chain.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>When</th><th>Stall</th><th>Paid</th><th>Seller</th><th>Buyer</th><th>Transaction</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="none" id="rowsNone" hidden>No paid calls yet. The first one will be written here with its transaction.</div>
+        <p class="more"><a href="/ledger/" style="color:var(--gold)">The whole ledger →</a></p>
+      </div>
+    </section>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

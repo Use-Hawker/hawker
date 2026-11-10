@@ -1,0 +1,16 @@
+{
+  "name": "hawker",
+  "private": true,
+  "type": "module",
+  "description": "APIs sold by the call to AI agents, paid in USDG on Robinhood Chain through HawkerTill.",
+  "scripts": {
+    "compile": "cd contracts && node compile.mjs",
+    "fork": "cd contracts && npx hardhat node --config hardhat.config.cjs --port 8548",
+    "test": "cd contracts && node test.mjs && cd .. && node test/e2e.mjs && node test/agent.mjs",
+    "dev": "node test/dev-fork.mjs",
+    "deploy": "cd worker && npx wrangler deploy",
+    "agent": "node agent/cli.mjs"
+  },
+  "dependencies": { "viem": "2.21.0" },
+  "devDependencies": { "hardhat": "^2.22.17", "sharp": "^0.35.0", "solc": "0.8.24", "wrangler": "^4" }
+}

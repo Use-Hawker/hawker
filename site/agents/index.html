@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>For agents — HAWKER</title>
+  <meta name="description" content="Give an AI agent its own USDG wallet on Robinhood Chain with per-call and per-day limits. CLI, SDK and MCP server.">
+  <meta property="og:title" content="For agents — HAWKER">
+  <meta property="og:image" content="/og-image.png">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="agents">
+  <div class="awning thin"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="sign">
+      <div>
+        <p class="kicker">The agent kit</p>
+        <h1>Give an agent a wallet, not a card.</h1>
+        <p class="lead">The kit keeps the agent's key on your machine and signs each payment itself. The model only ever sees stalls, prices and answers.</p>
+      </div>
+      <a class="btn ghost ghLink" href="#" target="_blank" rel="noopener" hidden>The kit on GitHub</a>
+    </header>
+
+    <section style="padding-top:40px">
+      <div class="cols">
+        <div class="card"><h4>1. Make its wallet</h4><p>One command makes a key in <code>~/.hawker/key</code> and prints the address. Send it a few USDG on Robinhood Chain. It never needs ETH.</p><pre>hawker init
+hawker balance</pre></div>
+        <div class="card"><h4>2. Set its limits</h4><p>Per call and per day, in USDG. Above them nothing is signed, whatever the model asks for.</p><pre>HAWKER_MAX_PER_CALL=0.10
+HAWKER_MAX_PER_DAY=2
+HAWKER_TILL=<span class="tillText"></span></pre></div>
+        <div class="card"><h4>3. Plug it in</h4><p>As an MCP server in Claude or Cursor, or straight from a script.</p><pre>hawker stalls
+hawker call rh-wallet \
+  '{"address":"0x…"}'</pre></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Install</h2>
+      <p class="sub">Node 20 or newer. The kit is a few small files with viem as its only dependency, from <span class="ghText"></span>.</p>
+      <pre>git clone https://<span class="ghText"></span> hawker
+cd hawker && npm install --omit=dev
+cd agent && npm link        # puts `hawker` on your PATH
+hawker init</pre>
+    </section>
+
+    <section>
+      <h2>As an MCP server</h2>
+      <p class="sub">The server runs on your machine over stdio and holds the key. It gives the model three tools.</p>
+      <div data-codetabs>
+        <div class="tabs"><button type="button" data-k="claude">Claude Desktop / Claude Code</button><button type="button" data-k="cursor">Cursor</button></div>
+        <pre data-pane="claude">{
+  "mcpServers": {
+    "hawker": {
+      "command": "hawker",
+      "args": ["mcp"],
+      "env": { "HAWKER_MAX_PER_CALL": "0.10", "HAWKER_MAX_PER_DAY": "2" }
+    }
+  }
+}</pre>
+        <pre data-pane="cursor">// .cursor/mcp.json
+{
+  "mcpServers": {
+    "hawker": { "command": "hawker", "args": ["mcp"], "env": { "HAWKER_MAX_PER_DAY": "2" } }
+  }
+}</pre>
+      </div>
+      <table class="ref">
+        <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>hawker_stalls</td><td>The catalog: every stall with its price per call and the input it takes.</td></tr>
+          <tr><td>hawker_call</td><td>Calls one stall and pays for it from the agent's wallet. Returns the answer and a receipt with the transaction. <code>max_usd</code> refuses the call if it costs more.</td></tr>
+          <tr><td>hawker_balance</td><td>USDG in the wallet, spent today, and the limits. Never the key.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>From code</h2>
+      <div data-codetabs>
+        <div class="tabs"><button type="button" data-k="sdk">The kit's SDK</button><button type="button" data-k="viem">By hand, with viem</button></div>
+        <pre data-pane="sdk">import { loadConfig, call, verify } from './hawker/agent/hawker-agent.mjs';
+
+const cfg = loadConfig();            // reads ~/.hawker/key and HAWKER_* limits
+const { result, receipt } = await call(cfg, 'coin-price', { ids: 'ethereum' });
+console.log(result.prices.ethereum.usd, receipt.tx);
+
+// optional: check the receipt against the chain yourself
+await verify(cfg, receipt, '<span class="tillText"></span>');</pre>
+        <pre data-pane="viem">import { privateKeyToAccount } from 'viem/accounts';
+import { keccak256, encodeAbiParameters } from 'viem';
+
+const USDG = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168';
+const account = privateKeyToAccount(process.env.KEY);
+const url = '<span class="originText"></span>/v1/call/rh-wallet', body = JSON.stringify({ address: account.address });
+
+// 1. ask: the 402 says who to pay, how much, and the call ref
+const q = (await (await fetch(url, { method: 'POST', body })).json()).accepts[0];
+
+// 2. sign a USDG authorization to the till; the seller and ref ride in the nonce
+const p = { from: account.address, seller: q.seller, value: q.value, validAfter: '0',
+            validBefore: String(Math.floor(Date.now() / 1000) + 300), ref: q.ref };
+p.signature = await account.signTypedData({
+  domain: { name: 'Global Dollar', version: '1', chainId: 4663, verifyingContract: USDG },
+  types: { ReceiveWithAuthorization: [
+    { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' },
+    { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }] },
+  primaryType: 'ReceiveWithAuthorization',
+  message: { from: p.from, to: q.till, value: BigInt(p.value), validAfter: 0n, validBefore: BigInt(p.validBefore),
+             nonce: keccak256(encodeAbiParameters([{ type: 'address' }, { type: 'bytes32' }], [q.seller, q.ref])) },
+});
+
+// 3. the same request again, with the payment
+const r = await fetch(url, { method: 'POST', body, headers: { 'x-payment': btoa(JSON.stringify(p)) } });
+console.log(await r.json());   // { result, receipt: { tx, paidUsd, sellerGotUsd, feeUsd } }</pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Settings</h2>
+      <table class="ref">
+        <thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>HAWKER_KEY</td><td>~/.hawker/key</td><td>The agent's private key, or a file that holds it.</td></tr>
+          <tr><td>HAWKER_MAX_PER_CALL</td><td>1</td><td>The most one call may cost, in USDG.</td></tr>
+          <tr><td>HAWKER_MAX_PER_DAY</td><td>5</td><td>The most the agent may spend in a UTC day. Kept on disk in <code>~/.hawker/spend.json</code>.</td></tr>
+          <tr><td>HAWKER_TILL</td><td>none</td><td>Pin the agent to one till: a quote naming any other contract is refused.</td></tr>
+          <tr><td>HAWKER_API</td><td>https://usehawker.fun</td><td>The gateway.</td></tr>
+          <tr><td>RH_RPC_URL</td><td>public RPC</td><td>Robinhood Chain RPC, used for <code>balance</code> and <code>verify</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="faq">
+      <h2>Questions</h2>
+      <details><summary>What stops a prompt injection from draining the wallet?</summary><p>Three things, none of them the model. The wallet only holds what you sent it. The kit refuses to sign above the per-call and per-day limits. And each signature pays one named seller one exact price for one call: it cannot be reused or pointed elsewhere.</p></details>
+      <details><summary>Does the agent need ETH for gas?</summary><p>No. The agent only signs. HAWKER's settler sends the transaction and pays the gas.</p></details>
+      <details><summary>What if the stall fails after I signed?</summary><p>The payment only lands after the stall answers. If it fails, the signature is never used and nothing moves. It stays valid for its five-minute window, so a retry does not need a new one.</p></details>
+      <details><summary>Can HAWKER take more than the price?</summary><p>No. The signature is for an exact amount, made out to the till contract, and the till sends it to the seller named in the nonce minus the fee. The fee is capped at 5% in the contract.</p></details>
+      <details><summary>How do I take money back out?</summary><p>It is the agent's own wallet: send the USDG anywhere with its key, like any other wallet. There is nothing to withdraw from HAWKER.</p></details>
+    </section>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

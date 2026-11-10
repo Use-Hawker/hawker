@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ledger — HAWKER</title>
+  <meta name="description" content="Every API call paid through HAWKER, each with its transaction on Robinhood Chain.">
+  <meta property="og:title" content="Ledger — HAWKER">
+  <meta property="og:image" content="/og-image.png">
+  <link rel="icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/hawker.css">
+</head>
+<body data-page="ledger">
+  <div class="awning thin"></div>
+  <div class="wrap">
+    <nav id="nav"></nav>
+
+    <header class="sign">
+      <div>
+        <p class="kicker">The ledger</p>
+        <h1>Every paid call, in chalk.</h1>
+        <p class="lead">Each row is a call whose payment landed on Robinhood Chain. Open the transaction and the till's <code>Paid</code> event is there with the same buyer, seller and amounts.</p>
+      </div>
+    </header>
+
+    <section style="padding-top:40px">
+      <div class="board">
+        <div class="totals">
+          <div><b id="sCalls">–</b><span>paid calls</span></div>
+          <div><b id="sVolume">–</b><span>USDG paid</span></div>
+          <div><b id="sSellers">–</b><span>USDG to sellers</span></div>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>When</th><th>Stall</th><th>Paid</th><th>Seller got</th><th>Fee</th><th>Seller</th><th>Buyer</th><th>Took</th><th>Transaction</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="none" id="rowsNone" hidden>No paid calls yet. The first one will be written here with its transaction.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Reading the board</h2>
+      <div class="cols">
+        <div class="card"><h4>house</h4><p>The seller is HAWKER's own house wallet: a call to one of the house stalls on open data.</p></div>
+        <div class="card"><h4>team</h4><p>The buyer is one of HAWKER's own wallets, used for tests and demos. Marked so they are never counted as outside demand.</p></div>
+        <div class="card"><h4>Took</h4><p>From the moment the paid request arrived to the moment the payment landed: running the call plus one block.</p></div>
+      </div>
+      <p class="hint" style="margin-top:16px">The board is HAWKER's own record. The chain is the proof: every <code>Paid</code> event of the till at <span class="tillAddr">–</span>.</p>
+    </section>
+  </div>
+  <footer id="footer"></footer>
+  <script src="/assets/hawker.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "hawker-agent",
+  "version": "0.1.0",
+  "description": "Pay for API calls in USDG on Robinhood Chain from an agent's own wallet. CLI, SDK and MCP server.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "hawker": "cli.mjs" },
+  "main": "hawker-agent.mjs",
+  "engines": { "node": ">=20" },
+  "dependencies": { "viem": "^2.21.0" }
+}
