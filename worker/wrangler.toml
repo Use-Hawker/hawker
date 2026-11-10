@@ -3,11 +3,10 @@ main = "src/index.js"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
-# turn on once the usehawker.fun zone is active on Cloudflare
-# routes = [
-#   { pattern = "usehawker.fun", custom_domain = true },
-#   { pattern = "www.usehawker.fun", custom_domain = true },
-# ]
+routes = [
+  { pattern = "usehawker.fun", custom_domain = true },
+  { pattern = "www.usehawker.fun", custom_domain = true },
+]
 
 [assets]
 directory = "../site"
@@ -22,7 +21,7 @@ database_id = "REPLACE_WITH_YOUR_D1_ID"
 
 [vars]
 TILL = "0x8281E355A7ff3d7f311e54C338B324131a0Ea45E"   # HawkerTill, deployed 2026-11-10 (block 110918651), Sourcify exact match
-HOUSE_PAY_TO = ""      # the wallet the house stalls are paid to
+HOUSE_PAY_TO = "0x43cfe7a33be23acb9deac99791ff2bbe019c3471"   # the house stalls are paid to the deploy wallet
 FEE_BPS = "300"        # shown on /v1; the till itself holds the real fee
 MIN_PRICE = "0.02"     # one settlement costs about a cent of gas, paid by the settler
 DEMO_PER_IP = "10"

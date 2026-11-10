@@ -67,7 +67,12 @@ export const HOUSE = [
     ],
     run: async (env, { token, holder }) => {
       const pub = client(env.RH_RPC_URL), t = addr(token);
-      const read = (functionName, args) => pub.readContract({ address: t, abi: erc20Abi, functionName, args }).catch(() => null);
+      // a failing RPC throws here and is reported as a source failure, not as a wrong address
+      const code = await pub.getCode({ address: t });
+      if (!code || code === '0x') throw fail('not_a_token');
+      // a function the contract does not have reverts and reads as null; anything else is the RPC failing
+      const read = (functionName, args) => pub.readContract({ address: t, abi: erc20Abi, functionName, args })
+        .catch((e) => (e.walk?.((x) => x?.name === 'ContractFunctionRevertedError' || x?.name === 'ContractFunctionZeroDataError') ? null : Promise.reject(e)));
       const [name, symbol, decimals, supply, bal] = await Promise.all([read('name'), read('symbol'), read('decimals'), read('totalSupply'), holder ? read('balanceOf', [addr(holder)]) : null]);
       if (decimals === null || supply === null) throw fail('not_a_token');
       return { token: t, name, symbol, decimals, totalSupply: formatUnits(supply, decimals), ...(holder ? { holder: addr(holder), balance: bal === null ? null : formatUnits(bal, decimals) } : {}) };

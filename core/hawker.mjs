@@ -7,7 +7,8 @@ export const PUBLIC_RPC = 'https://rpc.mainnet.chain.robinhood.com';
 export const EXPLORER = 'https://robinhoodchain.blockscout.com';
 export const USDG = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168'; // Global Dollar, 6 decimals
 export const chain = { id: CHAIN_ID, name: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [PUBLIC_RPC] } } };
-export const client = (rpc) => createPublicClient({ chain, transport: http(rpc || PUBLIC_RPC) });
+// reads made together go out as one JSON-RPC batch: free RPCs rate-limit bursts of separate requests
+export const client = (rpc) => createPublicClient({ chain, transport: http(rpc || PUBLIC_RPC, { batch: { wait: 10 } }) });
 
 export const TILL_ABI = parseAbi([
   'struct Payment { address from; address seller; uint256 value; uint256 validAfter; uint256 validBefore; bytes32 ref; uint8 v; bytes32 r; bytes32 s; }',
